@@ -58,8 +58,8 @@
 %%
 %% {webmachine, [
 %%   {log_handlers, [
-%%     {reporting_request_logger, [
-%%                                 {file, "/tmp/reporting.log",
+%%     {oc_wm_request_logger, [
+%%                                 {file, "/tmp/requests.log",
 %%                                  file_size, 100,  %% Size in MB
 %%                                  files, 5}
 %%                                ]
@@ -71,7 +71,7 @@ init(LogConfig) ->
     FileName = proplists:get_value(file, LogConfig),
     FileSize = proplists:get_value(file_size, LogConfig, 100),
     FileCount = proplists:get_value(files, LogConfig, 3),
-    {ok, LogHandle} = reporting_request_writer:open("request_log", FileName, FileCount, FileSize),
+    {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
     lager:info("Configured Webmachine Request Logger : ~p", [FileName]),
     {ok, #state{log_handle = LogHandle}}.
 

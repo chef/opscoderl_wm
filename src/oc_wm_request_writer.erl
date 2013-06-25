@@ -26,6 +26,10 @@
 -export([open/4,
          write/2]).
 
+-type calendar_time() :: { non_neg_integer(),  non_neg_integer(),  non_neg_integer() }.
+-type calendar_date() :: { integer(),  1..12, 1..31 }.
+-type erlang_time() :: {calendar_date(), calendar_time()}.
+
 -spec(open(string(), string(), pos_integer(), pos_integer()) ->
              {ok, #continuation{}} | {error, any()}).
 open(Name, FileName, MaxFiles, MaxFileSize) ->
@@ -38,8 +42,23 @@ open(Name, FileName, MaxFiles, MaxFileSize) ->
 -spec write(Log :: #continuation{},
             Output :: string()) -> ok | {error, term()}.
 write(Log, Output) ->
-    Timestamp = reporting_time_utils:time_iso8601(),
+    Timestamp = time_iso8601(),
     Node = atom_to_list(node()),
     Prefix = io_lib:format("~s ~s ", [Timestamp, Node]),
     Msg = iolist_to_binary([Prefix, Output, $\n]),
     disk_log:blog(Log, Msg).
+
+%% @doc Converts Erlang time-tuple to iso8601 formatted date string.
+%%
+%% Example output looks like <<"2003-12-13T18:30:02Z">>
+-spec(time_iso8601() -> string()).
+time_iso8601() ->
+    time_iso8601(calendar:universal_time()).
+
+-spec(time_iso8601(erlang_time()) -> string()).
+time_iso8601({{Year, Month, Day}, {Hour, Min, Sec}}) ->
+    % Is there a way to build a binary straight away?
+    Fmt = "~4B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ",
+    lists:flatten(io_lib:format(Fmt, [Year, Month, Day, Hour, Min, Sec])).
+
+
