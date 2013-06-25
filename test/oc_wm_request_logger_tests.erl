@@ -42,7 +42,7 @@ valid_message_format_test_() ->
             <<"this/is/the-path">>,<<"; ">>,<<"user=">>,<<"undefined">>,
             <<"; ">>,<<"perf1">>,<<"=">>,49,<<"; ">>,<<"perf2">>,<<"=">>,50,
             <<"; ">>],
-          ActualMsg = reporting_request_logger:generate_msg(valid_log_data()),
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data()),
 
           ?assertEqual(ValidMsg, ActualMsg)
       end
@@ -53,7 +53,7 @@ valid_message_format_test_() ->
           LogData = valid_log_data(),
           Notes = LogData#wm_log_data.notes,
 
-          ?assertEqual(undefined, reporting_request_logger:note(notreal, Notes))
+          ?assertEqual(undefined, oc_wm_request_logger:note(notreal, Notes))
       end
     }
   ].
