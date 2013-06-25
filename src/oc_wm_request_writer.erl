@@ -19,7 +19,7 @@
 %%
 
 
--module(reporting_request_writer).
+-module(oc_wm_request_writer).
 
 -include_lib("kernel/src/disk_log.hrl").
 
