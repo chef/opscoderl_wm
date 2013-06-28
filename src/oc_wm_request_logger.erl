@@ -25,8 +25,6 @@
 
 -module(oc_wm_request_logger).
 
--compile([{parse_transform, lager_transform}]).
-
 -behaviour(gen_event).
 
 %% gen_event API Functions
@@ -72,7 +70,6 @@ init(LogConfig) ->
     FileSize = proplists:get_value(file_size, LogConfig, 100),
     FileCount = proplists:get_value(files, LogConfig, 3),
     {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
-    lager:info("Configured Webmachine Request Logger : ~p", [FileName]),
     {ok, #state{log_handle = LogHandle}}.
 
 handle_call(_Msg, State) ->
