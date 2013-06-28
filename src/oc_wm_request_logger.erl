@@ -59,6 +59,9 @@
 -include_lib("kernel/src/disk_log.hrl").
 -include_lib("webmachine/include/webmachine_logger.hrl").
 
+-define(DEFAULT_MAX_FILE_SIZE, 100). %% in MB
+-define(DEFAULT_NUM_FILES, 3).
+
 -ifdef(TEST).
 -compile(export_all).
 -endif.
@@ -72,8 +75,8 @@
 %% Initialize the log handler
 init(LogConfig) ->
     FileName = proplists:get_value(file, LogConfig),
-    FileSize = proplists:get_value(file_size, LogConfig, 100),
-    FileCount = proplists:get_value(files, LogConfig, 3),
+    FileSize = proplists:get_value(file_size, LogConfig, ?DEFAULT_MAX_FILE_SIZE),
+    FileCount = proplists:get_value(files, LogConfig, ?DEFAULT_NUM_FILES),
     {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
     {ok, #state{log_handle = LogHandle}}.
 
