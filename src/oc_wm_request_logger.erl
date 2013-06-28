@@ -19,8 +19,29 @@
 %% under the License.
 %%
 %%
-%% @doc Request Logger
-%% Per request logging for webmachine
+%% @doc Per-Request Logger for Webmachine
+%%
+%% Webmachine Loggers are configured with a list which is passed to init/1
+%% For our logger this argument is a proplist. It can be configured in sys.config as
+%% follows:
+%%
+%% {webmachine, [
+%%   {log_handlers, [
+%%     {oc_wm_request_logger, [
+%%                                 {file, "/tmp/requests.log",
+%%                                  file_size, 100,  %% Size in MB
+%%                                  files, 5}
+%%                                ]
+%%     }]
+%%   } ]
+%% }
+%%
+%% Available configuration keys:
+%%
+%% file        - Base file name to log to
+%% file_size   - Maximum size of log files in rotation, in MB
+%% files       - Number of log files in rotation
+%%
 
 
 -module(oc_wm_request_logger).
@@ -49,22 +70,6 @@
 %% gen_server API Functions
 -spec init([{string(), any()}]) -> {ok, #state{}}.
 %% Initialize the log handler
-%%
-%% Webmachine Loggers are configured with a list which is passed to init/1
-%% For our logger this argument is a proplist. It can be configured in sys.config as
-%% follows:
-%%
-%% {webmachine, [
-%%   {log_handlers, [
-%%     {oc_wm_request_logger, [
-%%                                 {file, "/tmp/requests.log",
-%%                                  file_size, 100,  %% Size in MB
-%%                                  files, 5}
-%%                                ]
-%%     }]
-%%   } ]
-%% }
-%%
 init(LogConfig) ->
     FileName = proplists:get_value(file, LogConfig),
     FileSize = proplists:get_value(file_size, LogConfig, 100),
