@@ -30,6 +30,14 @@
 -type calendar_date() :: { integer(),  1..12, 1..31 }.
 -type erlang_time() :: {calendar_date(), calendar_time()}.
 
+%% @doc Helper function to open a wrap-type disk log
+%%
+%% Arguments:
+%%   Name     - Name of the log, referred internally
+%%   FileName - Base filename on disk
+%%   MaxFiles - Maximum number of log files in rotation
+%%   MaxSize  - Maximum size of each log file in rotation
+%%
 -spec(open(string(), string(), pos_integer(), pos_integer()) ->
              {ok, #continuation{}} | {error, any()}).
 open(Name, FileName, MaxFiles, MaxFileSize) ->

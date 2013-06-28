@@ -128,7 +128,7 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 %% request's notes... just to cut down on the verbosity a bit.
 %%
 %% We have to handle the case where Notes is undefined.  Requests that
-%% make it through to finish_request/2 in reporting will have a notes
+%% make it through to finish_request/2 will have a notes
 %% list (we stuff information we carry around in our #base_state{}
 %% record into the notes there so they are available in this logger).
 %% However, a request to a path that does not match the dispatch rules
@@ -138,7 +138,6 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 %% 'undefined' in this case.  Enough 404s like this in rapid
 %% succession would cause the whole system to restart (via a cascade
 %% of supervisor restarts), which could be used for a DOS attack.
-%% This patch was ported from bifrost.
 note(Key, Notes) when is_list(Notes) ->
     proplists:get_value(Key, Notes);
 note(_Key, undefined) ->
