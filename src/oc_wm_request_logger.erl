@@ -28,9 +28,9 @@
 %% {webmachine, [
 %%   {log_handlers, [
 %%     {oc_wm_request_logger, [
-%%                                 {file, "/tmp/requests.log",
-%%                                  file_size, 100,  %% Size in MB
-%%                                  files, 5}
+%%                                 {file, "/tmp/requests.log"},
+%%                                 {file_size, 100},  %% Size in MB
+%%                                 {files, 5}
 %%                                ]
 %%     }]
 %%   } ]
