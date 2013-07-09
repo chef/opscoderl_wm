@@ -101,20 +101,31 @@ code_change(_OldVsn, State, _Extra) ->
 
 %% Internal Functions
 generate_msg(#wm_log_data{response_code = ResponseCode,
+                          response_length = ResponseLength,
                           method = Method,
                           headers = Headers,
                           path = Path,
+                          peer = Peer,
                           notes = Notes}) ->
-    OrgName = note(org_name, Notes),
-    ReqId = note(reqid, Notes),
     User = mochiweb_headers:get_value("x-ops-userid", Headers),
     %% Our list of things to log, manually extracted from our log_data record
-    LogList = [<<"org_name=">>, as_io(OrgName), <<"; ">>,
-               <<"req_id=">>, as_io(ReqId), <<"; ">>,
-               <<"status=">>, as_io(ResponseCode), <<"; ">>,
-               <<"method=">>, as_io(Method), <<"; ">>,
-               <<"path=">>, as_io(Path), <<"; ">>,
-               <<"user=">>, as_io(User), <<"; ">>],
+    %% Use something similar to Apache/Nginx style log
+    LogList = [
+        webmachine_log:fmt_ip(Peer),
+        <<" - ">>,
+        as_io(Method), <<" ">>,
+        as_io(Path), <<" ">>,
+        as_io(ResponseCode), <<" ">>,
+        as_io(ResponseLength), <<" ">>,
+        <<"user=">>, as_io(User), <<"; ">> ],
+
+    %% Extract annotations logging from notes
+    OrgName = note(org_name, Notes),
+    ReqId = note(reqid, Notes),
+    Annotations = [
+        <<"org_name=">>, as_io(OrgName), <<"; ">>,
+        <<"req_id=">>, as_io(ReqId), <<"; ">> ],
+
     %% Extract the rest from perf_stats in notes.
     PerfList = case note(perf_stats, Notes) of
                    undefined -> [];
@@ -122,7 +133,7 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
                        [[Key, <<"=">>, as_io(Value), <<"; ">>] ||
                            {Key, Value} <- PerfStats]
                 end,
-    lists:flatten([LogList, PerfList]).
+    [LogList, Annotations, PerfList].
 
 %% @doc Utility method for extracting a value from a Webmachine
 %% request's notes... just to cut down on the verbosity a bit.
