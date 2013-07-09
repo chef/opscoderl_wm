@@ -41,7 +41,17 @@
 %% file        - Base file name to log to
 %% file_size   - Maximum size of log files in rotation, in MB
 %% files       - Number of log files in rotation
+%% annotations - (optional) Values to pull out of the Notes section. 
 %%
+%%               Example:
+%%
+%%                 [{req_id, <<"req-id">>]
+%%
+%%               will append
+%%
+%%                 req-id=something;
+%%
+%%               to each log line.
 
 
 -module(oc_wm_request_logger).
@@ -61,13 +71,17 @@
 
 -define(DEFAULT_MAX_FILE_SIZE, 100). %% in MB
 -define(DEFAULT_NUM_FILES, 3).
+-define(DEFAULT_ANNOTATIONS, []). %% By default, add nothing extra to the log output
 
 -ifdef(TEST).
 -compile(export_all).
 -endif.
 
+-type log_annotation() :: {atom(), binary()}.
+
 -record(state, {
-                log_handle :: #continuation{}
+                log_handle :: #continuation{},
+                annotations :: [log_annotation()]
                }).
 
 %% gen_server API Functions
@@ -77,15 +91,16 @@ init(LogConfig) ->
     FileName = proplists:get_value(file, LogConfig),
     FileSize = proplists:get_value(file_size, LogConfig, ?DEFAULT_MAX_FILE_SIZE),
     FileCount = proplists:get_value(files, LogConfig, ?DEFAULT_NUM_FILES),
+    Annotations = proplists:get_value(annotations, LogConfig, ?DEFAULT_ANNOTATIONS),
     {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
-    {ok, #state{log_handle = LogHandle}}.
+    {ok, #state{log_handle = LogHandle, annotations = Annotations}}.
 
 handle_call(_Msg, State) ->
     {ok, noreply, State}.
 
 handle_event({log_access, LogData},
-             #state{log_handle = LogHandle} = State) ->
-    Msg = generate_msg(LogData),
+             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+    Msg = generate_msg(LogData, Annotations),
     %% TODO - Should I really be checking return value here and crash on fast_log error ?
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State}.
@@ -106,7 +121,7 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
                           headers = Headers,
                           path = Path,
                           peer = Peer,
-                          notes = Notes}) ->
+                          notes = Notes}, AnnotationFields) ->
     User = mochiweb_headers:get_value("x-ops-userid", Headers),
     %% Our list of things to log, manually extracted from our log_data record
     %% Use something similar to Apache/Nginx style log
@@ -120,11 +135,7 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
         <<"user=">>, as_io(User), <<"; ">> ],
 
     %% Extract annotations logging from notes
-    OrgName = note(org_name, Notes),
-    ReqId = note(reqid, Notes),
-    Annotations = [
-        <<"org_name=">>, as_io(OrgName), <<"; ">>,
-        <<"req_id=">>, as_io(ReqId), <<"; ">> ],
+    Annotations = message_annotations(AnnotationFields, Notes),
 
     %% Extract the rest from perf_stats in notes.
     PerfList = case note(perf_stats, Notes) of
@@ -134,6 +145,29 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
                            {Key, Value} <- PerfStats]
                 end,
     [LogList, Annotations, PerfList].
+
+%% @doc Helper function to format extra information from log notes
+%% This will take a list of annotation fields, pull it from notes,
+%% then formatted into an iolist. The output format is 'key=val; '
+%%
+%% Example:
+%%
+%%   [{req_id, <<"req-id">>]
+%%
+%% will append
+%%
+%%   req-id=something;
+%%
+%% to each log line.
+%%
+message_annotations([], _) ->
+    [];
+message_annotations(Annotations, Notes) ->
+    message_annotations(Annotations, Notes, []).
+message_annotations([{Key, Header} | Rest], Notes, A) ->
+    message_annotations(Rest, Notes, [[Header, <<"=">>, as_io(note(Key, Notes)), <<"; ">>] | A]);
+message_annotations([], _, A) ->
+    A.
 
 %% @doc Utility method for extracting a value from a Webmachine
 %% request's notes... just to cut down on the verbosity a bit.
