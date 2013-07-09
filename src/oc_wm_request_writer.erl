@@ -52,8 +52,7 @@ open(Name, FileName, MaxFiles, MaxFileSize) ->
 write(Log, Output) ->
     Timestamp = time_iso8601(),
     Node = atom_to_list(node()),
-    Prefix = io_lib:format("~s ~s ", [Timestamp, Node]),
-    Msg = iolist_to_binary([Prefix, Output, $\n]),
+    Msg = iolist_to_binary([Timestamp, " ", Node, " ", Output, $\n]),
     disk_log:blog(Log, Msg).
 
 %% @doc Converts Erlang time-tuple to iso8601 formatted date string.
@@ -67,6 +66,6 @@ time_iso8601() ->
 time_iso8601({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     % Is there a way to build a binary straight away?
     Fmt = "~4B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ",
-    lists:flatten(io_lib:format(Fmt, [Year, Month, Day, Hour, Min, Sec])).
+    io_lib:format(Fmt, [Year, Month, Day, Hour, Min, Sec]).
 
 
