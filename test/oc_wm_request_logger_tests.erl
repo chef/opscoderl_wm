@@ -36,15 +36,17 @@ valid_log_data() ->
 valid_message_format_test_() ->
   [{"generate_msg/1 should return the correct message",
       fun() ->
-          ValidMsg = [<<"org_name=">>,<<"bobs_org">>,<<"; ">>,<<"req_id=">>,
-            <<"request_id">>,<<"; ">>,<<"status=">>,<<"200">>,<<"; ">>,
-            <<"method=">>,<<"GET">>,<<"; ">>,<<"path=">>,
-            <<"this/is/the-path">>,<<"; ">>,<<"user=">>,<<"undefined">>,
-            <<"; ">>,<<"perf1">>,<<"=">>,49,<<"; ">>,<<"perf2">>,<<"=">>,50,
-            <<"; ">>],
-          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data()),
+          ValidMsg = [<<"method=">>,<<"GET">>,<<"; ">>,
+                      <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                      <<"status=">>,<<"200">>,<<"; ">>,
+                      <<"user=">>,<<"undefined">>,<<"; ">>,
+                      <<"perf1">>,<<"=">>,49,<<"; ">>,
+                      <<"perf2">>,<<"=">>,50,<<"; ">>],
+          %% Tests should be expanded to included different annotation fields
+          AnnotationFields = [],
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
 
-          ?assertEqual(ValidMsg, ActualMsg)
+          ?assertEqual(ValidMsg, lists:flatten(ActualMsg))
       end
     },
    %% This is important because we get horrible failures if it doesn't
