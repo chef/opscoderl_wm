@@ -20,8 +20,15 @@
 -module(oc_wm_request).
 
 -export([
+         add_notes/2,
          make_req_id/0
         ]).
+
+%% @doc Helper function to annotate requests for logging
+add_notes([], Req) ->
+    Req;
+add_notes([{Key, Value} | Rest], Req) ->
+    add_notes(Rest, wrq:add_note(Key, Value, Req)).
 
 %% @doc Generate a new random identifier for requests.
 -spec make_req_id() -> <<_:192>>. %% 24 bytes
