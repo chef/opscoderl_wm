@@ -19,11 +19,28 @@
 
 -module(oc_wm_request).
 
--export([
-         make_req_id/0
+-export([add_notes/2,
+         make_req_id/0,
+         read_req_id/2
         ]).
+
+%% @doc Helper function to annotate requests for logging
+add_notes([], Req) ->
+    Req;
+add_notes([{Key, Value} | Rest], Req) ->
+    add_notes(Rest, wrq:add_note(Key, Value, Req)).
 
 %% @doc Generate a new random identifier for requests.
 -spec make_req_id() -> <<_:192>>. %% 24 bytes
 make_req_id() ->
     base64:encode(crypto:md5(term_to_binary(make_ref()))).
+
+%% @doc Helper function to get req_id, usually set upstream
+%% If no req id is set in the header, then one is randomly generated
+read_req_id(ReqHeaderName, Req) ->
+    case wrq:get_req_header(ReqHeaderName, Req) of
+        undefined ->
+            make_req_id();
+        HV ->
+            iolist_to_binary(HV)
+    end.
