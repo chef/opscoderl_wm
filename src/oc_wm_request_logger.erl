@@ -147,7 +147,7 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 %%
 %% Example:
 %%
-%%   [{req_id, <<"req-id">>]
+%%   [{req_id, <<"req-id">>}]
 %%
 %% will append
 %%
@@ -160,9 +160,20 @@ message_annotations([], _) ->
 message_annotations(Annotations, Notes) ->
     message_annotations(Annotations, Notes, []).
 message_annotations([{Key, Header} | Rest], Notes, A) ->
-    message_annotations(Rest, Notes, [[Header, <<"=">>, as_io(note(Key, Notes)), <<"; ">>] | A]);
+    message_annotations(Rest, Notes, [format_note(Header, note(Key, Notes)) | A]);
 message_annotations([], _, A) ->
     A.
+
+%% @doc Helper function to format an individual note entriy
+%% If the note value is a list, we need to determine if it is a proplist
+%% If the first element of the list is a tuple, then we assume it is a proplist
+format_note(_Header, undefined) ->
+    [];
+format_note(Header, [{_, _} | _] = Note) ->
+    %% If it is a proplist, then expand it out and drop the parent key
+    [format_note(Key, Value) || {Key, Value} <- Note];
+format_note(Header, Note) ->
+    [Header, <<"=">>, as_io(Note), <<"; ">>].
 
 %% @doc Utility method for extracting a value from a Webmachine
 %% request's notes... just to cut down on the verbosity a bit.
