@@ -123,23 +123,14 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
     User = mochiweb_headers:get_value("x-ops-userid", Headers),
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
-    LogList = [
-        <<"method=">>, as_io(Method), <<"; ">>,
-        <<"path=">>, as_io(Path), <<"; ">>,
-        <<"status=">>, as_io(ResponseCode), <<"; ">>,
-        <<"user=">>, as_io(User), <<"; ">>],
+    [ <<"method=">>, as_io(Method), <<"; ">>,
+      <<"path=">>, as_io(Path), <<"; ">>,
+      <<"status=">>, as_io(ResponseCode), <<"; ">>,
+      <<"user=">>, as_io(User), <<"; ">>,
 
-    %% Extract annotations logging from notes
-    Annotations = message_annotations(AnnotationFields, Notes),
-
-    %% Extract the rest from perf_stats in notes.
-    PerfList = case note(perf_stats, Notes) of
-                   undefined -> [];
-                   PerfStats ->
-                       [[Key, <<"=">>, as_io(Value), <<"; ">>] ||
-                           {Key, Value} <- PerfStats]
-                end,
-    [LogList, Annotations, PerfList].
+      %% Extract annotations logging from notes
+      message_annotations(AnnotationFields, Notes)
+    ].
 
 %% @doc Helper function to format extra information from log notes
 %% This will take a list of annotation fields, pull it from notes,

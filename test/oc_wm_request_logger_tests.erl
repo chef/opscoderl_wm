@@ -26,25 +26,24 @@ valid_log_data() ->
                method = 'GET',
                headers = ?SAMPLE_HEADERS,
                path = <<"this/is/the-path">>,
-               notes = [{org_name, <<"bobs_org">>},
-                        {reqid, <<"request_id">>},
-                        {perf_stats, [{<<"perf1">>, 1},
-                                      {<<"perf2">>, 2}]
+               notes = [{<<"org">>, <<"bobs_org">>},
+                        {<<"req_id">>, <<"request_id">>},
+                        {<<"perf_stats">>, [{<<"perf1">>, 1},
+                                            {<<"perf2">>, 2}]
                         }]
               }.
 
 valid_message_format_test_() ->
-  [{"generate_msg/1 should return the correct message",
+  [{"without annotations, generate_msg/1 should return the correct message",
       fun() ->
           ValidMsg = [<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                       <<"status=">>,<<"200">>,<<"; ">>,
-                      <<"user=">>,<<"undefined">>,<<"; ">>,
-                      <<"perf1">>,<<"=">>,49,<<"; ">>,
-                      <<"perf2">>,<<"=">>,50,<<"; ">>],
+                      <<"user=">>,<<"undefined">>,<<"; ">>],
           %% Tests should be expanded to included different annotation fields
           AnnotationFields = [],
           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+          io:format("~nExpected: ~p~nActual: ~p~n", [ValidMsg, ActualMsg]),
 
           ?assertEqual(ValidMsg, lists:flatten(ActualMsg))
       end
