@@ -24,7 +24,10 @@
          read_req_id/2
         ]).
 
+-include_lib("webmachine/include/wm_reqdata.hrl").
+
 %% @doc Helper function to annotate requests for logging
+-spec add_notes([] | [{atom(), term()}], #wm_reqdata{}) -> #wm_reqdata{}.
 add_notes([], Req) ->
     Req;
 add_notes([{Key, Value} | Rest], Req) ->
