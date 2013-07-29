@@ -117,7 +117,6 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Functions
 generate_msg(#wm_log_data{response_code = ResponseCode,
                           method = Method,
-                          headers = Headers,
                           path = Path,
                           notes = Notes}, AnnotationFields) ->
     %% Our list of things to log, manually extracted from our log_data record
@@ -147,22 +146,18 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 message_annotations([], _) ->
     [];
 message_annotations(Annotations, Notes) ->
-    message_annotations(Annotations, Notes, []).
-message_annotations([Key | Rest], Notes, A) ->
-    message_annotations(Rest, Notes, [format_note(Key, note(Key, Notes)) | A]);
-message_annotations([], _, A) ->
-    A.
+    [ format_note(Key, note(Key, Notes)) || Key <- Annotations ].
 
 %% @doc Helper function to format an individual note entriy
 %% If the note value is a list, we need to determine if it is a proplist
 %% If the first element of the list is a tuple, then we assume it is a proplist
-format_note(_Header, undefined) ->
+format_note(_Key, undefined) ->
     [];
-format_note(Header, [{_, _} | _] = Note) ->
+format_note(_ParentKey, [{_, _} | _] = Proplist) ->
     %% If it is a proplist, then expand it out and drop the parent key
-    [format_note(Key, Value) || {Key, Value} <- Note];
-format_note(Header, Note) ->
-    [Header, <<"=">>, as_io(Note), <<"; ">>].
+    [format_note(Key, Value) || {Key, Value} <- Proplist];
+format_note(Key, Value) ->
+    [as_io(Key), <<"=">>, as_io(Value), <<"; ">>].
 
 %% @doc Utility method for extracting a value from a Webmachine
 %% request's notes... just to cut down on the verbosity a bit.
