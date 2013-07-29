@@ -120,13 +120,11 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
                           headers = Headers,
                           path = Path,
                           notes = Notes}, AnnotationFields) ->
-    User = mochiweb_headers:get_value("x-ops-userid", Headers),
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
     [ <<"method=">>, as_io(Method), <<"; ">>,
       <<"path=">>, as_io(Path), <<"; ">>,
       <<"status=">>, as_io(ResponseCode), <<"; ">>,
-      <<"user=">>, as_io(User), <<"; ">>,
 
       %% Extract annotations logging from notes
       message_annotations(AnnotationFields, Notes)

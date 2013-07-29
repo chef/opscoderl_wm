@@ -27,6 +27,7 @@ valid_log_data() ->
                headers = ?SAMPLE_HEADERS,
                path = <<"this/is/the-path">>,
                notes = [{<<"org">>, <<"bobs_org">>},
+                        {<<"user">>, <<"bob">>},
                         {<<"req_id">>, <<"request_id">>},
                         {<<"perf_stats">>, [{<<"perf1">>, 1},
                                             {<<"perf2">>, 2}]
@@ -38,8 +39,7 @@ valid_message_format_test_() ->
       fun() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
-                      <<"status=">>,<<"200">>,<<"; ">>,
-                      <<"user=">>,<<"undefined">>,<<"; ">>]),
+                      <<"status=">>,<<"200">>,<<"; ">>]),
           AnnotationFields = [],
           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
 
@@ -51,7 +51,6 @@ valid_message_format_test_() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                       <<"status=">>,<<"200">>,<<"; ">>,
-                      <<"user=">>,<<"undefined">>,<<"; ">>,
                       <<"req_id">>,<<"=">>,<<"request_id">>,<<"; ">>]),
           AnnotationFields = [<<"req_id">>],
           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
@@ -64,7 +63,6 @@ valid_message_format_test_() ->
            ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                        <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                        <<"status=">>,<<"200">>,<<"; ">>,
-                       <<"user=">>,<<"undefined">>,<<"; ">>,
                        <<"perf1">>,<<"=">>,<<"1">>,<<"; ">>,
                        <<"perf2">>,<<"=">>,<<"2">>,<<"; ">>
                    ]),
@@ -79,8 +77,7 @@ valid_message_format_test_() ->
       fun() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
-                      <<"status=">>,<<"200">>,<<"; ">>,
-                      <<"user=">>,<<"undefined">>,<<"; ">>]),
+                      <<"status=">>,<<"200">>,<<"; ">>]),
           AnnotationFields = ["invalid_key"],
           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
 
