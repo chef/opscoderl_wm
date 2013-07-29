@@ -159,8 +159,8 @@ message_annotations([], _) ->
     [];
 message_annotations(Annotations, Notes) ->
     message_annotations(Annotations, Notes, []).
-message_annotations([{Key, Header} | Rest], Notes, A) ->
-    message_annotations(Rest, Notes, [format_note(Header, note(Key, Notes)) | A]);
+message_annotations([Key | Rest], Notes, A) ->
+    message_annotations(Rest, Notes, [format_note(Key, note(Key, Notes)) | A]);
 message_annotations([], _, A) ->
     A.
 
