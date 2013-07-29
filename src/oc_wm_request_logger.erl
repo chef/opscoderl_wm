@@ -2,6 +2,7 @@
 %% -*- tab-width: 4;erlang-indent-level: 4;indent-tabs-mode: nil -*-
 %% ex: ts=4 sw=4 ft=erlang et
 %% @author Matthew Peck <matthew@opscode.com>
+%% @author Ho-Sheng Hsiao <hosh@opscode.com>
 %% @copyright 2013 Opscode Inc.
 %%
 %% This file is provided to you under the Apache License,
@@ -41,15 +42,15 @@
 %% file        - Base file name to log to
 %% file_size   - Maximum size of log files in rotation, in MB
 %% files       - Number of log files in rotation
-%% annotations - (optional) Values to pull out of the Notes section. 
+%% annotations - (optional) Values to pull out of the Notes section. This is a list of atoms
 %%
 %%               Example:
 %%
-%%                 [{req_id, <<"req-id">>]
+%%                 [req_id, org]
 %%
 %%               will append
 %%
-%%                 req-id=something;
+%%                 req_id=something; org=something;
 %%
 %%               to each log line.
 
@@ -135,14 +136,13 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 %%
 %% Example:
 %%
-%%   [{req_id, <<"req-id">>}]
+%%   [req_id, org]
 %%
 %% will append
 %%
-%%   req-id=something;
+%%   req_id=something; org=something;
 %%
 %% to each log line.
-%%
 message_annotations([], _) ->
     [];
 message_annotations(Annotations, Notes) ->
@@ -150,7 +150,12 @@ message_annotations(Annotations, Notes) ->
 
 %% @doc Helper function to format an individual note entriy
 %% If the note value is a list, we need to determine if it is a proplist
-%% If the first element of the list is a tuple, then we assume it is a proplist
+%% If the first element of the list is a tuple, then we assume it is a proplist.
+%% Proplists are expanded out to key=value; format. This implementation will
+%% recursively descend into nested proplists, though the behavior may not be
+%% useful.
+%%
+%% If the value is undefined, then emit nothing.
 format_note(_Key, undefined) ->
     [];
 format_note(_ParentKey, [{_, _} | _] = Proplist) ->
