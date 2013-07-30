@@ -109,7 +109,8 @@ handle_event({log_access, LogData},
 handle_info(_Msg, State) ->
     {ok, noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{log_handle = LogHandle}) ->
+    disk_log:close(LogHandle),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
