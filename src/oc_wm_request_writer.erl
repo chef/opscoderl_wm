@@ -48,7 +48,7 @@ open(Name, FileName, MaxFiles, MaxFileSize) ->
                    {format, external}]).
 
 -spec write(Log :: #continuation{},
-            Output :: string()) -> ok | {error, term()}.
+            Output :: iolist()) -> ok | {error, term()}.
 write(Log, Output) ->
     Timestamp = time_iso8601(),
     Node = atom_to_list(node()),

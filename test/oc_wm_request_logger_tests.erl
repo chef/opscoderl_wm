@@ -26,29 +26,64 @@ valid_log_data() ->
                method = 'GET',
                headers = ?SAMPLE_HEADERS,
                path = <<"this/is/the-path">>,
-               notes = [{org_name, <<"bobs_org">>},
-                        {reqid, <<"request_id">>},
+               notes = [{org, <<"bobs_org">>},
+                        {user, <<"bob">>},
+                        {req_id, <<"request_id">>},
                         {perf_stats, [{<<"perf1">>, 1},
-                                      {<<"perf2">>, 2}]
+                                       {<<"perf2">>, 2}]
                         }]
               }.
 
 valid_message_format_test_() ->
-  [{"generate_msg/1 should return the correct message",
+  [{"without annotations, generate_msg/1 should return the correct message",
       fun() ->
-          ValidMsg = [<<"method=">>,<<"GET">>,<<"; ">>,
+          ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
-                      <<"status=">>,<<"200">>,<<"; ">>,
-                      <<"user=">>,<<"undefined">>,<<"; ">>,
-                      <<"perf1">>,<<"=">>,49,<<"; ">>,
-                      <<"perf2">>,<<"=">>,50,<<"; ">>],
-          %% Tests should be expanded to included different annotation fields
+                      <<"status=">>,<<"200">>,<<"; ">>]),
           AnnotationFields = [],
           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
 
-          ?assertEqual(ValidMsg, lists:flatten(ActualMsg))
+          ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
       end
     },
+  {"with simple annotation, generate_msg/1 should return the correct message",
+      fun() ->
+          ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                      <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                      <<"status=">>,<<"200">>,<<"; ">>,
+                      <<"req_id">>,<<"=">>,<<"request_id">>,<<"; ">>]),
+          AnnotationFields = [req_id],
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+
+          ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+      end
+   },
+   {"with proplist annotation, generate_msg/1 should return the correct message",
+       fun() ->
+           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                       <<"status=">>,<<"200">>,<<"; ">>,
+                       <<"perf1">>,<<"=">>,<<"1">>,<<"; ">>,
+                       <<"perf2">>,<<"=">>,<<"2">>,<<"; ">>
+                   ]),
+           AnnotationFields = [perf_stats],
+           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+
+
+           ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+       end
+   },
+  {"with invalid annotation key, generate_msg/1 should return the correct message",
+      fun() ->
+          ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                      <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                      <<"status=">>,<<"200">>,<<"; ">>]),
+          AnnotationFields = [invalid_key],
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+
+          ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+      end
+   },
    %% This is important because we get horrible failures if it doesn't
    {"note/2 should return undefined for nonexistant keys",
       fun() ->
@@ -59,3 +94,33 @@ valid_message_format_test_() ->
       end
     }
   ].
+
+integration_test_() ->
+    [{"request logger should create a log file and write to disk",
+        fun() ->
+                %% GIVEN a valid log file name
+                {A, B, C} = now(),
+                LogBasename = io_lib:format("/tmp/opscoderl_wm-test-~p-~p-~p/request.log", [A, B, C]),
+                ExpectedLogFilename = io_lib:format("~s.1", [LogBasename]),
+
+                filelib:ensure_dir(LogBasename),
+
+                %% AND a registered logger
+                gen_event:start_link({local, ?EVENT_LOGGER}), %% EVENT_LOGGER is defined in webmachine_logger.hrl
+                webmachine_log:add_handler(oc_wm_request_logger, [{file, LogBasename},
+                                                                  {file_size, 10},
+                                                                  {files, 1},
+                                                                  {annotations, [req_id, perf_stats]}]),
+
+                %% WHEN request logger receives request data
+                webmachine_log:log_access(valid_log_data()),
+                webmachine_log:delete_handler(oc_wm_request_logger), % flush the log
+
+                %% THEN the logger should emit a log line
+                {ok, ActualLog} = file:read_file(ExpectedLogFilename),
+
+                ExpectedLogLine = "^[\\d-]+T[\\d:]+Z .* method=.*; path=.*; status=.*; req_id=.*; perf1=.*; perf2=.*;",
+
+                ?assertMatch({match, _}, re:run(ActualLog, ExpectedLogLine))
+        end
+    }].
