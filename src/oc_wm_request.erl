@@ -24,7 +24,15 @@
          read_req_id/2
         ]).
 
+-include_lib("webmachine/include/wm_reqdata.hrl").
+
 %% @doc Helper function to annotate requests for logging
+%%
+%% This adds additional data to the request. The handler can then be configured to
+%% extract annotations and append them to the log line being emitted.
+%%
+%% The annotation key *must* be an atom.
+-spec add_notes([] | [{atom(), term()}], #wm_reqdata{}) -> #wm_reqdata{}.
 add_notes([], Req) ->
     Req;
 add_notes([{Key, Value} | Rest], Req) ->
@@ -35,7 +43,7 @@ add_notes([{Key, Value} | Rest], Req) ->
 make_req_id() ->
     base64:encode(crypto:md5(term_to_binary(make_ref()))).
 
-%% @doc Helper function to get req_id, usually set upstream
+%% @doc Helper function to get req_id, usually set upstream. (Usually X-Request-Id)
 %% If no req id is set in the header, then one is randomly generated
 read_req_id(ReqHeaderName, Req) ->
     case wrq:get_req_header(ReqHeaderName, Req) of

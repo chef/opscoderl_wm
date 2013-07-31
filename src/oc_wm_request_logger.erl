@@ -2,6 +2,7 @@
 %% -*- tab-width: 4;erlang-indent-level: 4;indent-tabs-mode: nil -*-
 %% ex: ts=4 sw=4 ft=erlang et
 %% @author Matthew Peck <matthew@opscode.com>
+%% @author Ho-Sheng Hsiao <hosh@opscode.com>
 %% @copyright 2013 Opscode Inc.
 %%
 %% This file is provided to you under the Apache License,
@@ -41,15 +42,15 @@
 %% file        - Base file name to log to
 %% file_size   - Maximum size of log files in rotation, in MB
 %% files       - Number of log files in rotation
-%% annotations - (optional) Values to pull out of the Notes section. 
+%% annotations - (optional) Values to pull out of the Notes section. This is a list of atoms
 %%
 %%               Example:
 %%
-%%                 [{req_id, <<"req-id">>]
+%%                 [req_id, org]
 %%
 %%               will append
 %%
-%%                 req-id=something;
+%%                 req_id=something; org=something;
 %%
 %%               to each log line.
 
@@ -108,7 +109,8 @@ handle_event({log_access, LogData},
 handle_info(_Msg, State) ->
     {ok, noreply, State}.
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{log_handle = LogHandle}) ->
+    disk_log:close(LogHandle),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -117,29 +119,17 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Functions
 generate_msg(#wm_log_data{response_code = ResponseCode,
                           method = Method,
-                          headers = Headers,
                           path = Path,
                           notes = Notes}, AnnotationFields) ->
-    User = mochiweb_headers:get_value("x-ops-userid", Headers),
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
-    LogList = [
-        <<"method=">>, as_io(Method), <<"; ">>,
-        <<"path=">>, as_io(Path), <<"; ">>,
-        <<"status=">>, as_io(ResponseCode), <<"; ">>,
-        <<"user=">>, as_io(User), <<"; ">>],
+    [ <<"method=">>, as_io(Method), <<"; ">>,
+      <<"path=">>, as_io(Path), <<"; ">>,
+      <<"status=">>, as_io(ResponseCode), <<"; ">>,
 
-    %% Extract annotations logging from notes
-    Annotations = message_annotations(AnnotationFields, Notes),
-
-    %% Extract the rest from perf_stats in notes.
-    PerfList = case note(perf_stats, Notes) of
-                   undefined -> [];
-                   PerfStats ->
-                       [[Key, <<"=">>, as_io(Value), <<"; ">>] ||
-                           {Key, Value} <- PerfStats]
-                end,
-    [LogList, Annotations, PerfList].
+      %% Extract annotations logging from notes
+      message_annotations(AnnotationFields, Notes)
+    ].
 
 %% @doc Helper function to format extra information from log notes
 %% This will take a list of annotation fields, pull it from notes,
@@ -147,22 +137,33 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
 %%
 %% Example:
 %%
-%%   [{req_id, <<"req-id">>]
+%%   [req_id, org]
 %%
 %% will append
 %%
-%%   req-id=something;
+%%   req_id=something; org=something;
 %%
 %% to each log line.
-%%
 message_annotations([], _) ->
     [];
 message_annotations(Annotations, Notes) ->
-    message_annotations(Annotations, Notes, []).
-message_annotations([{Key, Header} | Rest], Notes, A) ->
-    message_annotations(Rest, Notes, [[Header, <<"=">>, as_io(note(Key, Notes)), <<"; ">>] | A]);
-message_annotations([], _, A) ->
-    A.
+    [ format_note(Key, note(Key, Notes)) || Key <- Annotations ].
+
+%% @doc Helper function to format an individual note entriy
+%% If the note value is a list, we need to determine if it is a proplist
+%% If the first element of the list is a tuple, then we assume it is a proplist.
+%% Proplists are expanded out to key=value; format. This implementation will
+%% recursively descend into nested proplists, though the behavior may not be
+%% useful.
+%%
+%% If the value is undefined, then emit nothing.
+format_note(_Key, undefined) ->
+    [];
+format_note(_ParentKey, [{_, _} | _] = Proplist) ->
+    %% If it is a proplist, then expand it out and drop the parent key
+    [format_note(Key, Value) || {Key, Value} <- Proplist];
+format_note(Key, Value) ->
+    [as_io(Key), <<"=">>, as_io(Value), <<"; ">>].
 
 %% @doc Utility method for extracting a value from a Webmachine
 %% request's notes... just to cut down on the verbosity a bit.
