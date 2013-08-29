@@ -20,6 +20,7 @@
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("webmachine/include/webmachine_logger.hrl").
 -include_lib("sample_requests.hrl").
+-compile([export_all]).
 
 valid_log_data() ->
   #wm_log_data{response_code = <<"200">>,
@@ -94,6 +95,28 @@ valid_message_format_test_() ->
       end
     }
   ].
+
+format_test_() ->
+    [
+     {"formatter returns empty list when value is undefined",
+      ?_assertEqual([], oc_wm_request_logger:format_note(key, undefined))
+     },
+     {"formatter returns empty list when value is empty string",
+      ?_assertEqual([], oc_wm_request_logger:format_note(key, ""))
+     },
+     {"formatter returns empty list when value is empty list",
+      ?_assertEqual([], oc_wm_request_logger:format_note(key, []))
+     },
+     {"formatter removes empty and undefined values from proplist",
+      fun() ->
+              PropList = [{key1, undefined},
+                          {key2, ""},
+                          {key3, "value3"}],
+              Result = iolist_to_binary(oc_wm_request_logger:format_note(proplist, PropList)),
+              ?assertEqual(<<"key3=value3; ">>, Result)
+      end
+     }
+    ].
 
 integration_test_() ->
     [{"request logger should create a log file and write to disk",
