@@ -159,6 +159,8 @@ message_annotations(Annotations, Notes) ->
 %% If the value is undefined, then emit nothing.
 format_note(_Key, undefined) ->
     [];
+format_note(_Key, "") ->
+    [];
 format_note(_ParentKey, [{_, _} | _] = Proplist) ->
     %% If it is a proplist, then expand it out and drop the parent key
     [format_note(Key, Value) || {Key, Value} <- Proplist];
