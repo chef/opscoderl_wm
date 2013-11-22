@@ -23,7 +23,7 @@
 -compile([export_all]).
 
 valid_log_data() ->
-  #wm_log_data{response_code = <<"200">>,
+  #wm_log_data{response_code = 200,
                method = 'GET',
                headers = ?SAMPLE_HEADERS,
                path = <<"this/is/the-path">>,
