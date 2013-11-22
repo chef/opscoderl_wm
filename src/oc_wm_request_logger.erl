@@ -123,9 +123,15 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
                           notes = Notes}, AnnotationFields) ->
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
+    Code = case ResponseCode of
+               {C, _} ->
+                   C;
+               _ ->
+                   ResponseCode
+           end,
     [ <<"method=">>, as_io(Method), <<"; ">>,
       <<"path=">>, as_io(Path), <<"; ">>,
-      <<"status=">>, as_io(ResponseCode), <<"; ">>,
+      <<"status=">>, as_io(Code), <<"; ">>,
 
       %% Extract annotations logging from notes
       message_annotations(AnnotationFields, Notes)
@@ -200,12 +206,11 @@ as_io(X) when is_binary(X); is_list(X) ->
 as_io(X) when is_integer(X) ->
     integer_to_list(X);
 as_io(X) when is_float(X) ->
-    io_lib:format("~f", [X]);
+    io_lib:format("~p", [X]);
 as_io(X) when is_pid(X) orelse is_reference(X) ->
     io_lib:format("~p", [X]);
 as_io({raw, X}) ->
     %% this is last-ditch effort, but may give acceptable results.
     io_lib:format("~256P", [X, 100]);
-as_io({Fmt, Args}) ->
+as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
-

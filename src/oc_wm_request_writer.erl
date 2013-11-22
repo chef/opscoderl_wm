@@ -57,7 +57,7 @@ write(Log, Output) ->
 
 %% @doc Converts Erlang time-tuple to iso8601 formatted date string.
 %%
-%% Example output looks like <<"2003-12-13T18:30:02Z">>
+%% Example output looks like `<<"2003-12-13T18:30:02Z">>'
 -spec(time_iso8601() -> string()).
 time_iso8601() ->
     time_iso8601(calendar:universal_time()).

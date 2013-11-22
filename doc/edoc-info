@@ -1,0 +1,3 @@
+{application,opscoderl_wm}.
+{packages,[]}.
+{modules,[oc_wm_request,oc_wm_request_logger,oc_wm_request_writer]}.

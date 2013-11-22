@@ -23,7 +23,7 @@
 -compile([export_all]).
 
 valid_log_data() ->
-  #wm_log_data{response_code = <<"200">>,
+  #wm_log_data{response_code = 200,
                method = 'GET',
                headers = ?SAMPLE_HEADERS,
                path = <<"this/is/the-path">>,
@@ -93,7 +93,21 @@ valid_message_format_test_() ->
 
           ?assertEqual(undefined, oc_wm_request_logger:note(notreal, Notes))
       end
-    }
+    },
+   {"Handles annotated response codes from webmachine",
+    %% wm 1.10.5 introduced customizable response status
+    %% messages. This means that the logger receives `{Code, Msg}'
+    fun() ->
+            LogData0 = valid_log_data(),
+            LogData = LogData0#wm_log_data{response_code = {200, undefined}},
+            ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                                            <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                                            <<"status=">>,<<"200">>,<<"; ">>]),
+            AnnotationFields = [],
+            ActualMsg = oc_wm_request_logger:generate_msg(LogData, AnnotationFields),
+            ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+    end
+   }
   ].
 
 format_test_() ->
@@ -147,3 +161,29 @@ integration_test_() ->
                 ?assertMatch({match, _}, re:run(ActualLog, ExpectedLogLine))
         end
     }].
+
+as_io_test_() ->
+    ExactTests = [
+                  {an_atom, <<"an_atom">>},
+                  {"", <<"empty_string">>},
+                  {<<>>, <<"empty_string">>},
+                  {"a string", "a string"},
+                  {<<"a bin">>, <<"a bin">>},
+                  {123, "123"}
+                 ],
+    FlattenTests = [
+                    {1.234, "1.234"},
+                    {self(), erlang:pid_to_list(self())},
+                    {{raw, [{a, 1}, {b, 2}]}, <<"[{a,1},{b,2}]">>},
+                    {{"~B", [42]}, "42"}
+                   ],
+    [
+     [ ?_assertEqual(Expect, oc_wm_request_logger:as_io(In))
+       || {In, Expect} <- ExactTests ],
+
+     [ ?_assertEqual(i2b(Expect), i2b(oc_wm_request_logger:as_io(In)))
+       || {In, Expect} <- FlattenTests ]
+    ].
+
+i2b(X) ->
+    erlang:iolist_to_binary(X).
