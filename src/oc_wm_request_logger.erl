@@ -206,12 +206,11 @@ as_io(X) when is_binary(X); is_list(X) ->
 as_io(X) when is_integer(X) ->
     integer_to_list(X);
 as_io(X) when is_float(X) ->
-    io_lib:format("~f", [X]);
+    io_lib:format("~p", [X]);
 as_io(X) when is_pid(X) orelse is_reference(X) ->
     io_lib:format("~p", [X]);
 as_io({raw, X}) ->
     %% this is last-ditch effort, but may give acceptable results.
     io_lib:format("~256P", [X, 100]);
-as_io({Fmt, Args}) ->
+as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
-
