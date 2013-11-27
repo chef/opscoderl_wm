@@ -124,8 +124,10 @@ generate_msg(#wm_log_data{response_code = ResponseCode,
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
     Code = case ResponseCode of
-               {C, _} ->
-                   C;
+               {C1, _} when is_integer(C1) ->
+                   C1;
+               {_, C2} ->
+                   C2;
                _ ->
                    ResponseCode
            end,

@@ -94,7 +94,7 @@ valid_message_format_test_() ->
           ?assertEqual(undefined, oc_wm_request_logger:note(notreal, Notes))
       end
     },
-   {"Handles annotated response codes from webmachine",
+   {"Handles annotated non-error response codes from webmachine",
     %% wm 1.10.5 introduced customizable response status
     %% messages. This means that the logger receives `{Code, Msg}'
     fun() ->
@@ -103,6 +103,21 @@ valid_message_format_test_() ->
             ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                                             <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                                             <<"status=">>,<<"200">>,<<"; ">>]),
+            AnnotationFields = [],
+            ActualMsg = oc_wm_request_logger:generate_msg(LogData, AnnotationFields),
+            ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+    end
+   },
+
+   {"Handles annotated error response codes from webmachine",
+    %% wm 1.10.5 introduced customizable response status
+    %% messages. This means that the logger receives `{atom, Code}' in the case of error
+    fun() ->
+            LogData0 = valid_log_data(),
+            LogData = LogData0#wm_log_data{response_code = {log_error, 400}},
+            ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                                            <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                                            <<"status=">>,<<"400">>,<<"; ">>]),
             AnnotationFields = [],
             ActualMsg = oc_wm_request_logger:generate_msg(LogData, AnnotationFields),
             ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
