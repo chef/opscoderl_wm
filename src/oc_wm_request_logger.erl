@@ -104,6 +104,32 @@ handle_event({log_access, LogData},
     Msg = generate_msg(LogData, Annotations),
     %% TODO - Should I really be checking return value here and crash on fast_log error ?
     ok = oc_wm_request_writer:write(LogHandle, Msg),
+    {ok, State};
+handle_event({log_error, Code, Req, Reason},
+             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+    {Method, _} = webmachine_request:method(Req),
+    {Path, _} = webmachine_request:path(Req),
+    Msg = generate_msg(#wm_log_data{response_code = Code,
+                                    method = Method,
+                                    path = Path,
+                                    notes = Reason}, Annotations),
+    ok = oc_wm_request_writer:write(LogHandle, Msg),
+    {ok, State};
+handle_event({log_error, LogMsg},
+             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+    Msg = generate_msg(#wm_log_data{response_code = error,
+                                    method = undefined,
+                                    path = undefined,
+                                    notes = LogMsg}, Annotations),
+    ok = oc_wm_request_writer:write(LogHandle, Msg),
+    {ok, State};
+handle_event({log_info, LogMsg},
+             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+    Msg = generate_msg(#wm_log_data{response_code = info,
+                                    method = undefined,
+                                    path = undefined,
+                                    notes = LogMsg}, Annotations),
+    ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State}.
 
 handle_info(_Msg, State) ->
@@ -115,7 +141,6 @@ terminate(_Reason, #state{log_handle = LogHandle}) ->
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
-
 %% Internal Functions
 generate_msg(#wm_log_data{response_code = ResponseCode,
                           method = Method,
