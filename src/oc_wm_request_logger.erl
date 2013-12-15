@@ -246,8 +246,15 @@ as_io(X) when is_float(X) ->
 as_io(X) when is_pid(X) orelse is_reference(X) ->
     io_lib:format("~p", [X]);
 as_io({raw, X}) ->
-    %% this is last-ditch effort, but may give acceptable results.
-    io_lib:format("~256P", [X, 100]);
+    %% this is last-ditch effort, but may give acceptable results. The
+    %% right thing to do is to pull in lager and use lager_trunc_io
+    %% here. For now, we make a trade off tuned from a sample error
+    %% tuple, limiting structure depth to 15 and line length to 512
+    %% chars. Any input tuple that fits in 512 characters when depth
+    %% limited to 15 levels will print on one (long) line. Larger
+    %% items will still be printed, but will be formatted across
+    %% multiple lines -- less than ideal for line oriented logs.
+    io_lib:format("~512P", [X, 15]);
 as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
 
