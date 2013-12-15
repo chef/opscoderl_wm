@@ -69,6 +69,12 @@
 
 -include_lib("kernel/src/disk_log.hrl").
 -include_lib("webmachine/include/webmachine_logger.hrl").
+%% webmachine is presently confused about the logging interface. The
+%% specs for webmachineLog:log_error/3 indicate that a #wm_reqdata{}
+%% record will be passed. But code in webmachine_decision_core and
+%% webmachine_mochiweb both appear to send `{webmachine_request,
+%% #wm_reqstate{}}' tuples.
+-include_lib("webmachine/include/wm_reqdata.hrl").
 
 -define(DEFAULT_MAX_FILE_SIZE, 100). %% in MB
 -define(DEFAULT_NUM_FILES, 3).
@@ -107,12 +113,14 @@ handle_event({log_access, LogData},
     {ok, State};
 handle_event({log_error, Code, Req, Reason},
              #state{log_handle = LogHandle, annotations = Annotations} = State) ->
-    {Method, _} = webmachine_request:method(Req),
-    {Path, _} = webmachine_request:path(Req),
+    Method = wm_method(Req),
+    Path = wm_path(Req),
+    Notes0 = wm_notes(Req),
+    Notes = add_note(Reason, Notes0),
     Msg = generate_msg(#wm_log_data{response_code = Code,
                                     method = Method,
                                     path = Path,
-                                    notes = Reason}, Annotations),
+                                    notes = Notes}, Annotations),
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State};
 handle_event({log_error, LogMsg},
@@ -120,7 +128,7 @@ handle_event({log_error, LogMsg},
     Msg = generate_msg(#wm_log_data{response_code = error,
                                     method = undefined,
                                     path = undefined,
-                                    notes = LogMsg}, Annotations),
+                                    notes = [{msg, LogMsg}]}, Annotations),
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State};
 handle_event({log_info, LogMsg},
@@ -128,7 +136,7 @@ handle_event({log_info, LogMsg},
     Msg = generate_msg(#wm_log_data{response_code = info,
                                     method = undefined,
                                     path = undefined,
-                                    notes = LogMsg}, Annotations),
+                                    notes = [{msg, LogMsg}]}, Annotations),
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State}.
 
@@ -239,3 +247,43 @@ as_io({raw, X}) ->
     io_lib:format("~256P", [X, 100]);
 as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
+
+wm_method({webmachine_request, _} = Req) ->
+    {Method, _} = Req:method(),
+    Method;
+wm_method(#wm_reqdata{} = Req) ->
+    wrq:method(Req);
+wm_method(_) ->
+    undefined.
+
+wm_path({webmachine_request, _} = Req) ->
+    {Path, _} = Req:path(),
+    Path;
+wm_path(#wm_reqdata{} = Req) ->
+    wrq:path(Req);
+wm_path(_) ->
+    undefined.
+
+wm_notes({webmachine_request, _} = Req) ->
+    {ReqData, _} = Req:get_reqdata(),
+    wrq:get_notes(ReqData);
+wm_notes(#wm_reqdata{} = Req) ->
+    wrq:get_notes(Req);
+wm_notes(_) ->
+    undefined.
+
+add_note(Note, undefined) ->
+    [{msg, {raw, Note}}];
+add_note(Note, Notes) ->
+    case lists:keyfind(msg, 1, Notes) of
+        false ->
+            [{msg, Note} | Notes];
+        {msg, RawMsg} ->
+            NewTuple = {msg, {raw, {unraw(RawMsg), Note}}},
+            lists:keyreplace(msg, 1, Notes, NewTuple)
+    end.
+
+unraw({raw, Msg}) ->
+    Msg;
+unraw(Msg) ->
+    Msg.
