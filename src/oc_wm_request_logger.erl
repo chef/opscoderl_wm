@@ -277,7 +277,7 @@ add_note(Note, undefined) ->
 add_note(Note, Notes) ->
     case lists:keyfind(msg, 1, Notes) of
         false ->
-            [{msg, Note} | Notes];
+            [{msg, {raw, Note}} | Notes];
         {msg, RawMsg} ->
             NewTuple = {msg, {raw, {unraw(RawMsg), Note}}},
             lists:keyreplace(msg, 1, Notes, NewTuple)
