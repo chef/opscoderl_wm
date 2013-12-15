@@ -2,7 +2,50 @@
 
 Opscode helpers for Webmachine. Here you will find the following modules:
 
-  - `oc_wm_request_logger` - Request logging using Webmachine logging hooks
+## oc_wm_request
+
+Helper functions for use in a wm callback module.
+
+Includes `make_req_id/0` for generating a random request id,
+`read_req_id/2` for reading the req id out of a header and generating
+one if none is found, and `add_notes/2` for annotating req data for
+use in logging.
+
+## oc_wm_request_logger
+
+A request logger for use with Webmachine logging hooks. To use this
+logger, add the following to your application's config:
+
+```
+  {webmachine, [
+          {log_handlers, [
+               {oc_wm_request_logger, [
+                       {file, "requests.log"},
+                       {file_size, 100},
+                       {files, 10},
+                       {annotations, [req_id, org_name, msg, darklaunch, perf_stats]}
+                       ]
+                      }]}]
+      }
+```
+
+The `annotations` key is optional. If you specify annotation keys,
+then values corresponding to those keys found in wm request's `notes`
+field are extracted and integrated into the log entry.
+
+### How webmachine starts a pluggable logger
+
+The mechanism by which log handlers are added to wm's event logger is
+a bit twisty. Here's an overview to help trace it down in the code if
+you need it.
+
+Webmachine starts your logger in `webmachine_app.erl` where a call to
+`supervisor:start_child(webmachine_logger_watcher_sup, ...)` is made
+for each handler found in app config. That call starts a new
+`webmachine_logger_watcher` for each handler. In the init of
+`webmachine_logger_watcher` you will find a call to
+`gen_event:add_sup_handler` on the `webmachine_log_event` event logger
+which is where your handler is actually installed.
 
 # Guidelines for opscoderl helper repos #
 
@@ -44,7 +87,6 @@ Helper repos should follow these guidelines:
    OTP release when a non-helper app shares a dependency with a
    helper. We may need to add direct deps in some cases to get the
    right behavior out of rebar and lock deps.
-
 
 ## License ##
 
