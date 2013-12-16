@@ -112,7 +112,7 @@ handle_event({log_access, LogData},
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State};
 handle_event({log_error, Code, Req, Reason},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+             #state{annotations = Annotations} = State) ->
     Method = wm_method(Req),
     Path = wm_path(Req),
     Notes0 = wm_notes(Req),
@@ -122,16 +122,16 @@ handle_event({log_error, Code, Req, Reason},
                                     path = Path,
                                     notes = Notes}, Annotations),
     error_logger:error_report(Reason),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+    error_logger:error_report(binary_to_list(oc_wm_request_writer:format(Msg))),
     {ok, State};
 handle_event({log_error, LogMsg},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+             #state{annotations = Annotations} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = error,
                                     method = undefined,
                                     path = undefined,
                                     notes = [{msg, {raw, LogMsg}}]}, Annotations),
     error_logger:error_report(LogMsg),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+    error_logger:error_report(binary_to_list(oc_wm_request_writer:format(Msg))),
     {ok, State};
 handle_event({log_info, LogMsg},
              #state{log_handle = LogHandle, annotations = Annotations} = State) ->
