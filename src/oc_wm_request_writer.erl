@@ -24,6 +24,7 @@
 -include_lib("kernel/src/disk_log.hrl").
 
 -export([open/4,
+         format/1,
          write/2]).
 
 -type calendar_time() :: { non_neg_integer(),  non_neg_integer(),  non_neg_integer() }.
@@ -47,13 +48,17 @@ open(Name, FileName, MaxFiles, MaxFileSize) ->
                    {type, wrap},
                    {format, external}]).
 
+%% @doc helper function to format a log message
+-spec format(Output :: iolist()) -> binary().
+format(Output) ->
+    Timestamp = time_iso8601(),
+    Node = atom_to_list(node()),
+    iolist_to_binary([Timestamp, " ", Node, " ", Output, $\n]).
+
 -spec write(Log :: #continuation{},
             Output :: iolist()) -> ok | {error, term()}.
 write(Log, Output) ->
-    Timestamp = time_iso8601(),
-    Node = atom_to_list(node()),
-    Msg = iolist_to_binary([Timestamp, " ", Node, " ", Output, $\n]),
-    disk_log:blog(Log, Msg).
+    disk_log:blog(Log, format(Output)).
 
 %% @doc Converts Erlang time-tuple to iso8601 formatted date string.
 %%

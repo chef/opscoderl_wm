@@ -69,6 +69,12 @@
 
 -include_lib("kernel/src/disk_log.hrl").
 -include_lib("webmachine/include/webmachine_logger.hrl").
+%% webmachine is presently confused about the logging interface. The
+%% specs for webmachineLog:log_error/3 indicate that a #wm_reqdata{}
+%% record will be passed. But code in webmachine_decision_core and
+%% webmachine_mochiweb both appear to send `{webmachine_request,
+%% #wm_reqstate{}}' tuples.
+-include_lib("webmachine/include/wm_reqdata.hrl").
 
 -define(DEFAULT_MAX_FILE_SIZE, 100). %% in MB
 -define(DEFAULT_NUM_FILES, 3).
@@ -106,30 +112,32 @@ handle_event({log_access, LogData},
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State};
 handle_event({log_error, Code, Req, Reason},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
-    {Method, _} = webmachine_request:method(Req),
-    {Path, _} = webmachine_request:path(Req),
+             #state{annotations = Annotations} = State) ->
+    Method = wm_method(Req),
+    Path = wm_path(Req),
+    Notes = wm_notes(Req),
     Msg = generate_msg(#wm_log_data{response_code = Code,
                                     method = Method,
                                     path = Path,
-                                    notes = Reason}, Annotations),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+                                    notes = Notes}, Annotations),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:error_report({MsgBin, Reason}),
     {ok, State};
 handle_event({log_error, LogMsg},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+             #state{annotations = Annotations} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = error,
                                     method = undefined,
-                                    path = undefined,
-                                    notes = LogMsg}, Annotations),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+                                    path = undefined}, Annotations),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:error_report({MsgBin, LogMsg}),
     {ok, State};
 handle_event({log_info, LogMsg},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+             #state{annotations = Annotations} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = info,
                                     method = undefined,
-                                    path = undefined,
-                                    notes = LogMsg}, Annotations),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+                                    path = undefined}, Annotations),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:info_report({MsgBin, LogMsg}),
     {ok, State}.
 
 handle_info(_Msg, State) ->
@@ -235,7 +243,54 @@ as_io(X) when is_float(X) ->
 as_io(X) when is_pid(X) orelse is_reference(X) ->
     io_lib:format("~p", [X]);
 as_io({raw, X}) ->
-    %% this is last-ditch effort, but may give acceptable results.
-    io_lib:format("~256P", [X, 100]);
+    %% this is last-ditch effort, but may give acceptable results. The
+    %% right thing to do is to pull in lager and use lager_trunc_io
+    %% here. For now, we make a trade off tuned from a sample error
+    %% tuple, limiting structure depth to 15 and line length to 512
+    %% chars. Any input tuple that fits in 512 characters when depth
+    %% limited to 15 levels will print on one (long) line. Larger
+    %% items will still be printed, but will be formatted across
+    %% multiple lines -- less than ideal for line oriented logs.
+    io_lib:format("~512P", [X, 15]);
 as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
+
+wm_method({webmachine_request, _} = Req) ->
+    {Method, _} = Req:method(),
+    Method;
+wm_method(#wm_reqdata{} = Req) ->
+    wrq:method(Req);
+wm_method(_) ->
+    undefined.
+
+wm_path({webmachine_request, _} = Req) ->
+    {Path, _} = Req:path(),
+    Path;
+wm_path(#wm_reqdata{} = Req) ->
+    wrq:path(Req);
+wm_path(_) ->
+    undefined.
+
+wm_notes({webmachine_request, _} = Req) ->
+    {ReqData, _} = Req:get_reqdata(),
+    wrq:get_notes(ReqData);
+wm_notes(#wm_reqdata{} = Req) ->
+    wrq:get_notes(Req);
+wm_notes(_) ->
+    undefined.
+
+add_note(Note, undefined) ->
+    [{msg, {raw, Note}}];
+add_note(Note, Notes) ->
+    case lists:keyfind(msg, 1, Notes) of
+        false ->
+            [{msg, {raw, Note}} | Notes];
+        {msg, RawMsg} ->
+            NewTuple = {msg, {raw, {unraw(RawMsg), Note}}},
+            lists:keyreplace(msg, 1, Notes, NewTuple)
+    end.
+
+unraw({raw, Msg}) ->
+    Msg;
+unraw(Msg) ->
+    Msg.
