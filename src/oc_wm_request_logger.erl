@@ -115,32 +115,29 @@ handle_event({log_error, Code, Req, Reason},
              #state{annotations = Annotations} = State) ->
     Method = wm_method(Req),
     Path = wm_path(Req),
-    Notes0 = wm_notes(Req),
-    Notes = add_note(Reason, Notes0),
+    Notes = wm_notes(Req),
     Msg = generate_msg(#wm_log_data{response_code = Code,
                                     method = Method,
                                     path = Path,
                                     notes = Notes}, Annotations),
-    error_logger:error_report(Reason),
-    error_logger:error_report(binary_to_list(oc_wm_request_writer:format(Msg))),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:error_report({MsgBin, Reason}),
     {ok, State};
 handle_event({log_error, LogMsg},
              #state{annotations = Annotations} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = error,
                                     method = undefined,
-                                    path = undefined,
-                                    notes = [{msg, {raw, LogMsg}}]}, Annotations),
-    error_logger:error_report(LogMsg),
-    error_logger:error_report(binary_to_list(oc_wm_request_writer:format(Msg))),
+                                    path = undefined}, Annotations),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:error_report({MsgBin, LogMsg}),
     {ok, State};
 handle_event({log_info, LogMsg},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
+             #state{annotations = Annotations} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = info,
                                     method = undefined,
-                                    path = undefined,
-                                    notes = [{msg, {raw, LogMsg}}]}, Annotations),
-    error_logger:info_report(LogMsg),
-    ok = oc_wm_request_writer:write(LogHandle, Msg),
+                                    path = undefined}, Annotations),
+    MsgBin = erlang:iolist_to_binary(Msg),
+    error_logger:info_report({MsgBin, LogMsg}),
     {ok, State}.
 
 handle_info(_Msg, State) ->
