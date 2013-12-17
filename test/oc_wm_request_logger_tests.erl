@@ -38,9 +38,10 @@ valid_log_data() ->
               }.
 
 valid_webmachine_request() ->
-    ReqData = #wm_reqdata{method = 'GET', path = "/this/is/the/path", req_headers = mochiweb_headers:make([])},
+    ReqData = #wm_reqdata{method = 'GET', path = "/this/is/the/path", req_headers = mochiweb_headers:make([]),
+                          notes = [{msg, {raw, valid}}]},
     {ok, ReqState0} = webmachine_request:set_reqdata(ReqData, #wm_reqstate{}),
-    ReqState0.
+    {webmachine_request, ReqState0}.
 
 valid_message_format_test_() ->
   [{"without annotations, generate_msg/1 should return the correct message",
@@ -144,24 +145,28 @@ integration_test_() ->
                  log_access, [valid_log_data()],  % test function and input
                  "[\\d-]+T[\\d:]+Z .* method=.*; path=.*; status=.*; req_id=.*; perf1=.*; perf2=.*;" % expected log output
                },
-               { "request logger should log expected content for log_error/1 event",
-                 log_error, ["any"],
-                 "[\\d-]+T[\\d:]+Z .* method=undefined; path=undefined; status=error;"
+               { "request logger should NOT log content for log_error/1 event",
+                 log_error, ["why"],
+                 ""
                },
-               { "request logger should log expected content for log_error/3 event",
-                log_error, [401, valid_webmachine_request(), "unauthorized"],
-                 "[\\d-]+T[\\d:]+Z .* method=GET; path=/this/is/the/path; status=401;"
+               { "request logger should NOT log content for log_error/3 event",
+                log_error, [401, valid_webmachine_request(), unauthorized],
+                 ""
                },
-               { "request logger should log expected content for log_info/1 event",
-                 log_info, ["any"],
-                 "[\\d-]+T[\\d:]+Z .* method=undefined; path=undefined; status=info;"
+               { "request logger should NOT log content for log_error/3 event with bogus Req",
+                log_error, [401, bogus, unauthorized],
+                 ""
+               },
+               { "request logger should NOT log content for log_info/1 event",
+                 log_info, ["why"],
+                 ""
                }
              ],
     [ { Description,
         fun() ->
             File = add_wm_log_handler(),
             apply(webmachine_log, LogFunction, LogArgs) ,
-            webmachine_log:log_access(valid_log_data()),
+            %% webmachine_log:log_access(valid_log_data()),
             webmachine_log:delete_handler(oc_wm_request_logger), % clear cache
             {ok, ActualLog} = file:read_file(File),
             file:delete(File), % clean up at least some of our mess
@@ -179,7 +184,7 @@ add_wm_log_handler() ->
     webmachine_log:add_handler(oc_wm_request_logger, [{file, LogBasename},
                                                   {file_size, 10},
                                                   {files, 1},
-                                                  {annotations, [req_id, perf_stats]}]),
+                                                  {annotations, [req_id, perf_stats, msg]}]),
     ExpectedLogFilename.
 
 as_io_test_() ->
