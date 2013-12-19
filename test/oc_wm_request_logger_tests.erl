@@ -23,7 +23,23 @@
 -include_lib("webmachine/include/wm_reqstate.hrl").
 -include_lib("sample_requests.hrl").
 -compile([export_all]).
+-define(NO_FILTER, {undefined, undefined}).
 
+valid_log_data_no_notes() ->
+  #wm_log_data{response_code = 200,
+               method = 'GET',
+               headers = ?SAMPLE_HEADERS,
+               path = <<"this/is/the-path">>,
+               notes = undefined
+              }.
+
+valid_log_data_empty_notes() ->
+  #wm_log_data{response_code = 200,
+               method = 'GET',
+               headers = ?SAMPLE_HEADERS,
+               path = <<"this/is/the-path">>,
+               notes = []
+              }.
 valid_log_data() ->
   #wm_log_data{response_code = 200,
                method = 'GET',
@@ -33,9 +49,26 @@ valid_log_data() ->
                         {user, <<"bob">>},
                         {req_id, <<"request_id">>},
                         {perf_stats, [{<<"perf1">>, 1},
-                                       {<<"perf2">>, 2}]
+                                      {<<"perf2">>, 2}]
                         }]
               }.
+
+filter_perfdata(_Code, Notes) ->
+    FinalNotes = perf_filter(Notes, []),
+    FinalNotes.
+
+perf_filter([], Acc) ->
+    Acc;
+perf_filter([{perf_stats, Data} |T], Acc) when is_list(Data) ->
+    Item = case lists:keytake(<<"perf2">>, 1, Data) of
+        false ->
+            [];
+        {value, {<<"perf2">>, Value}, _} ->
+            [{<<"perf2">>, Value}]
+        end,
+    perf_filter(T, [{perf_stats, Item}|Acc]);
+perf_filter([H|T], Acc) ->
+    perf_filter(T, [H|Acc]).
 
 valid_webmachine_request() ->
     ReqData = #wm_reqdata{method = 'GET', path = "/this/is/the/path", req_headers = mochiweb_headers:make([]),
@@ -44,30 +77,50 @@ valid_webmachine_request() ->
     {webmachine_request, ReqState0}.
 
 valid_message_format_test_() ->
-  [{"without annotations, generate_msg/1 should return the correct message",
+  [{"without annotations, generate_msg should return the correct message",
       fun() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                       <<"status=">>,<<"200">>,<<"; ">>]),
           AnnotationFields = [],
-          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields, ?NO_FILTER),
 
           ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
       end
     },
-  {"with simple annotation, generate_msg/1 should return the correct message",
+  {"with simple annotation, generate_msg should return the correct message",
       fun() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                       <<"status=">>,<<"200">>,<<"; ">>,
                       <<"req_id">>,<<"=">>,<<"request_id">>,<<"; ">>]),
           AnnotationFields = [req_id],
-          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields, ?NO_FILTER),
 
           ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
       end
    },
-   {"with proplist annotation, generate_msg/1 should return the correct message",
+   {"with no annotation and a filter, generate_msg should return the correct message",
+      fun() ->
+          ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                      <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                      <<"status=">>,<<"200">>,<<"; ">>]),
+          AnnotationFields = [req_id],
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data_no_notes(), AnnotationFields, {?MODULE, filter_perfdata}),
+          ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+      end
+   },
+   {"with empty annotation and a filter, generate_msg should return the correct message",
+      fun() ->
+          ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                      <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                      <<"status=">>,<<"200">>,<<"; ">>]),
+          AnnotationFields = [req_id],
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data_empty_notes(), AnnotationFields, {?MODULE, filter_perfdata}),
+          ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+      end
+   },
+   {"with proplist annotation, generate_msg should return the correct message",
        fun() ->
            ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                        <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
@@ -76,20 +129,29 @@ valid_message_format_test_() ->
                        <<"perf2">>,<<"=">>,<<"2">>,<<"; ">>
                    ]),
            AnnotationFields = [perf_stats],
-           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
-
-
+           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields, ?NO_FILTER),
            ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
        end
    },
-  {"with invalid annotation key, generate_msg/1 should return the correct message",
+   {"with proplist annotation and filter, generate_msg should return the correct message",
+       fun() ->
+           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
+                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
+                       <<"status=">>,<<"200">>,<<"; ">>,
+                       <<"perf2">>,<<"=">>,<<"2">>,<<"; ">>
+                   ]),
+           AnnotationFields = [perf_stats],
+           ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields, {?MODULE, filter_perfdata}),
+           ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
+       end
+   },
+  {"with invalid annotation key, generate_msg should return the correct message",
       fun() ->
           ExpectedMsg = iolist_to_binary([<<"method=">>,<<"GET">>,<<"; ">>,
                       <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                       <<"status=">>,<<"200">>,<<"; ">>]),
           AnnotationFields = [invalid_key],
-          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields),
-
+          ActualMsg = oc_wm_request_logger:generate_msg(valid_log_data(), AnnotationFields, ?NO_FILTER),
           ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
       end
    },
@@ -112,7 +174,7 @@ valid_message_format_test_() ->
                                             <<"path=">>,<<"this/is/the-path">>,<<"; ">>,
                                             <<"status=">>,<<"200">>,<<"; ">>]),
             AnnotationFields = [],
-            ActualMsg = oc_wm_request_logger:generate_msg(LogData, AnnotationFields),
+            ActualMsg = oc_wm_request_logger:generate_msg(LogData, AnnotationFields, ?NO_FILTER),
             ?assertEqual(ExpectedMsg, iolist_to_binary(ActualMsg))
     end
    }

@@ -61,8 +61,8 @@
 
 %% gen_event API Functions
 -export([init/1,
-         handle_call/2,
          handle_event/2,
+         handle_call/2,
          handle_info/2,
          terminate/2,
          code_change/3]).
@@ -88,8 +88,8 @@
 
 -record(state, {
                 log_handle :: #continuation{},
-                annotations :: [log_annotation()]
-               }).
+                annotations :: [log_annotation()],
+                annotation_filter ::  { atom(), atom() } } ).
 
 %% gen_server API Functions
 -spec init([{string(), any()}]) -> {ok, #state{}}.
@@ -99,43 +99,43 @@ init(LogConfig) ->
     FileSize = proplists:get_value(file_size, LogConfig, ?DEFAULT_MAX_FILE_SIZE),
     FileCount = proplists:get_value(files, LogConfig, ?DEFAULT_NUM_FILES),
     Annotations = proplists:get_value(annotations, LogConfig, ?DEFAULT_ANNOTATIONS),
+    AnnotationFilter = proplists:get_value(annotation_filter, LogConfig, {undefined,undefined}),
     {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
-    {ok, #state{log_handle = LogHandle, annotations = Annotations}}.
+    {ok, #state{log_handle = LogHandle, annotations = Annotations, annotation_filter = AnnotationFilter }}.
 
 handle_call(_Msg, State) ->
     {ok, noreply, State}.
 
 handle_event({log_access, LogData},
-             #state{log_handle = LogHandle, annotations = Annotations} = State) ->
-    Msg = generate_msg(LogData, Annotations),
-    %% TODO - Should I really be checking return value here and crash on fast_log error ?
+             #state{log_handle = LogHandle, annotations = Annotations, annotation_filter = Filter} = State) ->
+    Msg = generate_msg(LogData, Annotations, Filter),
     ok = oc_wm_request_writer:write(LogHandle, Msg),
     {ok, State};
 handle_event({log_error, Code, Req, Reason},
-             #state{annotations = Annotations} = State) ->
+             #state{annotations = Annotations, annotation_filter = Filter} = State) ->
     Method = wm_method(Req),
     Path = wm_path(Req),
     Notes = wm_notes(Req),
     Msg = generate_msg(#wm_log_data{response_code = Code,
                                     method = Method,
                                     path = Path,
-                                    notes = Notes}, Annotations),
+                                    notes = Notes}, Annotations, Filter),
     MsgBin = erlang:iolist_to_binary(Msg),
     error_logger:error_report({MsgBin, Reason}),
     {ok, State};
 handle_event({log_error, LogMsg},
-             #state{annotations = Annotations} = State) ->
+             #state{annotations = Annotations, annotation_filter = Filter} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = error,
                                     method = undefined,
-                                    path = undefined}, Annotations),
+                                    path = undefined}, Annotations, Filter),
     MsgBin = erlang:iolist_to_binary(Msg),
     error_logger:error_report({MsgBin, LogMsg}),
     {ok, State};
 handle_event({log_info, LogMsg},
-             #state{annotations = Annotations} = State) ->
+             #state{annotations = Annotations, annotation_filter = Filter} = State) ->
     Msg = generate_msg(#wm_log_data{response_code = info,
                                     method = undefined,
-                                    path = undefined}, Annotations),
+                                    path = undefined}, Annotations, Filter),
     MsgBin = erlang:iolist_to_binary(Msg),
     error_logger:info_report({MsgBin, LogMsg}),
     {ok, State}.
@@ -153,24 +153,36 @@ code_change(_OldVsn, State, _Extra) ->
 generate_msg(#wm_log_data{response_code = ResponseCode,
                           method = Method,
                           path = Path,
-                          notes = Notes}, AnnotationFields) ->
+                          notes = Notes}, AnnotationFields,
+                          { FilterMod, FilterFun }) ->
+
+
     %% Our list of things to log, manually extracted from our log_data record
     %% This format is suitable for splunk parsing.
+    %% Provide applications an additional opportunity to filter content - this
+    %% really only applies when considering nested content that may be a list,
+    %% where they do not
     Code = case ResponseCode of
                {C, _} ->
                    C;
                _ ->
                    ResponseCode
            end,
+    Notes1 = case {FilterMod, Notes} of
+        {undefined, _} -> Notes;
+        {_, undefined} -> Notes;
+        {_, []}        -> Notes;
+        {_, _}         -> FilterMod:FilterFun(Code, Notes)
+    end,
     [ <<"method=">>, as_io(Method), <<"; ">>,
       <<"path=">>, as_io(Path), <<"; ">>,
       <<"status=">>, as_io(Code), <<"; ">>,
 
       %% Extract annotations logging from notes
-      message_annotations(AnnotationFields, Notes)
+      message_annotations(AnnotationFields, Notes1)
     ].
-
 %% @doc Helper function to format extra information from log notes
+
 %% This will take a list of annotation fields, pull it from notes,
 %% then formatted into an iolist. The output format is 'key=val; '
 %%
