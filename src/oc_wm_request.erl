@@ -41,7 +41,7 @@ add_notes([{Key, Value} | Rest], Req) ->
 %% @doc Generate a new random identifier for requests.
 -spec make_req_id() -> <<_:192>>. %% 24 bytes
 make_req_id() ->
-    base64:encode(crypto:md5(term_to_binary(make_ref()))).
+    base64:encode(crypto:hash(md5, term_to_binary(make_ref()))).
 
 %% @doc Helper function to get req_id, usually set upstream. (Usually X-Request-Id)
 %% If no req id is set in the header, then one is randomly generated
