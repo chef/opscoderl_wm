@@ -6,7 +6,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  webmachine
                  ]},
   %% uncomment if this is an active application
   %% {mod, { opscoderl_wm_app, []}},
