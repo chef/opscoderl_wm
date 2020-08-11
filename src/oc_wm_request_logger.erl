@@ -255,24 +255,24 @@ as_io({raw, X}) ->
 as_io({Fmt, Args}) when is_list(Fmt) andalso is_list(Args) ->
     io_lib:format(Fmt, Args).
 
-wm_method({webmachine_request, _} = Req) ->
-    {Method, _} = Req:method(),
+wm_method({webmachine_request, Req}) ->
+    {Method, _} = webmachine_request:method(Req),
     Method;
 wm_method(#wm_reqdata{} = Req) ->
     wrq:method(Req);
 wm_method(_) ->
     undefined.
 
-wm_path({webmachine_request, _} = Req) ->
-    {Path, _} = Req:path(),
+wm_path({webmachine_request, Req}) ->
+    {Path, _} = webmachine_request:path(Req),
     Path;
 wm_path(#wm_reqdata{} = Req) ->
     wrq:path(Req);
 wm_path(_) ->
     undefined.
 
-wm_notes({webmachine_request, _} = Req) ->
-    {ReqData, _} = Req:get_reqdata(),
+wm_notes({webmachine_request, Req}) ->
+    {ReqData, _} = webmachine_request:get_reqdata(Req),
     wrq:get_notes(ReqData);
 wm_notes(#wm_reqdata{} = Req) ->
     wrq:get_notes(Req);
