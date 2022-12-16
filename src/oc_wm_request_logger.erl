@@ -81,7 +81,7 @@
 -define(DEFAULT_ANNOTATIONS, []). %% By default, add nothing extra to the log output
 
 -ifdef(TEST).
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 -endif.
 
 -type log_annotation() :: {atom(), binary()}.
