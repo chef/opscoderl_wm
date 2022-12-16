@@ -22,7 +22,7 @@
 -include_lib("webmachine/include/wm_reqdata.hrl").
 -include_lib("webmachine/include/wm_reqstate.hrl").
 -include_lib("sample_requests.hrl").
--compile([export_all]).
+-compile([export_all, nowarn_export_all]).
 
 valid_log_data() ->
   #wm_log_data{response_code = 200,
