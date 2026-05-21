@@ -31,7 +31,8 @@
 %%     {oc_wm_request_logger, [
 %%                                 {file, "/tmp/requests.log"},
 %%                                 {file_size, 100},  %% Size in MB
-%%                                 {files, 5}
+%%                                 {files, 5},
+%%                                 {log_rotation_type, rotate}  %% Optional; default is 'wrap'
 %%                                ]
 %%     }]
 %%   } ]
@@ -39,10 +40,15 @@
 %%
 %% Available configuration keys:
 %%
-%% file        - Base file name to log to
-%% file_size   - Maximum size of log files in rotation, in MB
-%% files       - Number of log files in rotation
-%% annotations - (optional) Values to pull out of the Notes section. This is a list of atoms
+%% file              - Base file name to log to
+%% file_size         - Maximum size of log files in rotation, in MB
+%% files             - Number of log files in rotation
+%% log_rotation_type - (optional) 'wrap' (default) or 'rotate' (requires OTP 26+)
+%%                     'wrap'   : numbered segment files (requests.log.1, .2, …); basename is
+%%                                NOT the latest file
+%%                     'rotate' : plain basename (requests.log) is always the active file;
+%%                                rotated archives are requests.log.0.gz (newest), .1.gz, …
+%% annotations       - (optional) Values to pull out of the Notes section. This is a list of atoms
 %%
 %%               Example:
 %%
@@ -79,6 +85,7 @@
 -define(DEFAULT_MAX_FILE_SIZE, 100). %% in MB
 -define(DEFAULT_NUM_FILES, 3).
 -define(DEFAULT_ANNOTATIONS, []). %% By default, add nothing extra to the log output
+-define(DEFAULT_LOG_ROTATION_TYPE, wrap).
 
 -ifdef(TEST).
 -compile([export_all, nowarn_export_all]).
@@ -99,7 +106,8 @@ init(LogConfig) ->
     FileSize = proplists:get_value(file_size, LogConfig, ?DEFAULT_MAX_FILE_SIZE),
     FileCount = proplists:get_value(files, LogConfig, ?DEFAULT_NUM_FILES),
     Annotations = proplists:get_value(annotations, LogConfig, ?DEFAULT_ANNOTATIONS),
-    {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize),
+    LogRotationType = proplists:get_value(log_rotation_type, LogConfig, ?DEFAULT_LOG_ROTATION_TYPE),
+    {ok, LogHandle} = oc_wm_request_writer:open("request_log", FileName, FileCount, FileSize, LogRotationType),
     {ok, #state{log_handle = LogHandle, annotations = Annotations}}.
 
 handle_call(_Msg, State) ->
