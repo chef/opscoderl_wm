@@ -24,6 +24,7 @@
 -include_lib("kernel/src/disk_log.hrl").
 
 -export([open/4,
+         open/5,
          write/2]).
 
 -type calendar_time() :: { non_neg_integer(),  non_neg_integer(),  non_neg_integer() }.
@@ -41,10 +42,28 @@
 -spec(open(string(), string(), pos_integer(), pos_integer()) ->
              {ok, #continuation{}} | {error, any()}).
 open(Name, FileName, MaxFiles, MaxFileSize) ->
+    open(Name, FileName, MaxFiles, MaxFileSize, wrap).
+
+%% @doc Helper function to open a disk log with a configurable rotation type.
+%%
+%% Arguments:
+%%   Name            - Name of the log, referred internally
+%%   FileName        - Base filename on disk
+%%   MaxFiles        - Maximum number of log files in rotation
+%%   MaxSize         - Maximum size of each log file in rotation (in MB)
+%%   LogRotationType - Rotation type: 'wrap' (default) or 'rotate' (OTP 26+)
+%%
+%% When LogRotationType is 'rotate', the active file is always the plain
+%% FileName basename, and rotated archives are named FileName.N.gz
+%% (where .0.gz is the most recent). Requires OTP 26 or later.
+%%
+-spec(open(string(), string(), pos_integer(), pos_integer(), wrap | rotate) ->
+             {ok, #continuation{}} | {error, any()}).
+open(Name, FileName, MaxFiles, MaxFileSize, LogRotationType) ->
     disk_log:open([{name, Name},
                    {file, FileName},
                    {size, {MaxFileSize * 1024 * 1024, MaxFiles}},
-                   {type, wrap},
+                   {type, LogRotationType},
                    {format, external}]).
 
 -spec write(Log :: #continuation{},

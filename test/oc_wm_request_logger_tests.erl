@@ -187,6 +187,47 @@ add_wm_log_handler() ->
                                                   {annotations, [req_id, perf_stats, msg]}]),
     ExpectedLogFilename.
 
+add_wm_log_handler_rotate() ->
+    %% Same as add_wm_log_handler/0 but uses rotate mode.
+    %% In rotate mode the active file is always the plain basename (no .1 suffix).
+    %% Uses a tiny file_size (1 byte effectively, since disk_log rounds up) so
+    %% that a rotation can be forced by writing enough entries.
+    {A, B, C} = now(),
+    LogBasename = io_lib:format("/tmp/opscoderl_wm-test-rotate-~p-~p-~p/request.log", [A, B, C]),
+    filelib:ensure_dir(LogBasename),
+    gen_event:start_link({local, ?EVENT_LOGGER}),
+    webmachine_log:add_handler(oc_wm_request_logger, [{file, LogBasename},
+                                                  {file_size, 1},  %% 1 MB — will rotate after enough writes
+                                                  {files, 3},
+                                                  {log_rotation_type, rotate},
+                                                  {annotations, [req_id, perf_stats, msg]}]),
+    LogBasename. %% plain basename IS the active file in rotate mode
+
+integration_rotate_test_() ->
+    [{"request logger (rotate mode) plain basename is always the active file and rotation produces .0.gz archive",
+        fun() ->
+            File = add_wm_log_handler_rotate(),
+            ArchiveFile = File ++ ".0.gz",
+            %% Write enough data to exceed 1 MB and force at least one rotation.
+            %% Each log line is ~120 bytes; 12000 writes ~ 1.4 MB.
+            lists:foreach(fun(_) ->
+                webmachine_log:log_access(valid_log_data())
+            end, lists:seq(1, 12000)),
+            webmachine_log:delete_handler(oc_wm_request_logger),
+            %% The plain basename must exist and contain log entries (it is the active file)
+            {ok, ActiveLog} = file:read_file(File),
+            ?assertMatch({match, _},
+                         re:run(ActiveLog, "[\\d-]+T[\\d:]+Z .* method=.*; path=.*; status=.*")),
+            %% A rotated archive must exist — this is the key proof that rotation occurred
+            %% and that the plain basename remained the active file throughout
+            ?assertEqual(true, filelib:is_regular(ArchiveFile)),
+            %% The archive must be non-empty gzip data (magic bytes 1f 8b)
+            {ok, ArchiveData} = file:read_file(ArchiveFile),
+            <<16#1f, 16#8b, _/binary>> = ArchiveData,
+            file:delete(File)
+        end
+    }].
+
 as_io_test_() ->
     ExactTests = [
                   {an_atom, <<"an_atom">>},
