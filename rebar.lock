@@ -1,0 +1,8 @@
+[{<<"mochiweb">>,
+  {git,"https://github.com/mochi/mochiweb",
+       {ref,"611254eb941e502227f221667389b98fd8e72d6f"}},
+  1},
+ {<<"webmachine">>,
+  {git,"https://github.com/chef/webmachine",
+       {ref,"8e3141994826a731d8d68ceaac45e80a7ff9f7fa"}},
+  0}].
