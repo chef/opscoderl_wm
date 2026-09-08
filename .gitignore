@@ -6,3 +6,6 @@ rel/opscoderl_wm
 deps.plt
 .eunit
 .rebar
+
+# rebar3
+_build/
